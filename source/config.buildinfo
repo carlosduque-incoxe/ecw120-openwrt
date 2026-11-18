@@ -1,0 +1,11 @@
+CONFIG_TARGET_ipq40xx=y
+CONFIG_TARGET_ipq40xx_generic=y
+CONFIG_TARGET_ipq40xx_generic_DEVICE_engenius_ecw120=y
+# CONFIG_KERNEL_CC_OPTIMIZE_FOR_PERFORMANCE is not set
+CONFIG_KERNEL_CC_OPTIMIZE_FOR_SIZE=y
+# CONFIG_KERNEL_DEBUG_INFO is not set
+# CONFIG_KERNEL_KALLSYMS is not set
+CONFIG_PACKAGE_hostapd-utils=y
+CONFIG_PACKAGE_kmod-nft-bridge=y
+# CONFIG_PACKAGE_wpad-basic-mbedtls is not set
+CONFIG_PACKAGE_wpad-mbedtls=y

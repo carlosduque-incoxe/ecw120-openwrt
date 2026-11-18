@@ -1,0 +1,69 @@
+diff --git a/cmd/uow/main.go b/cmd/uow/main.go
+index 80e1641..5733401 100644
+--- a/cmd/uow/main.go
++++ b/cmd/uow/main.go
+@@ -936,8 +936,47 @@ func shapeReconcile(ap *openwrt.Client, s *openwrt.Snapshot) {
+ // meshUplink: -mesh-uplink.
+ var meshUplink bool
+ 
+-// syncMesh gives the AP-side watcher the site's mesh SSID/PSK (system_cfg
+-// mesh.essid + the vwire VAP's aaa.N.wpa.psk) and the 5 GHz radio.
++func meshCredentials(cfg map[string]string) (string, string) {
++	ssid := cfg["mesh.essid"]
++	if ssid == "" {
++		// A vport is the local station name. The hidden downlink VAP
++		// can identify the site network if the mesh block omits its SSID.
++		for k, role := range cfg {
++			if !strings.HasPrefix(k, "wireless.") || !strings.HasSuffix(k, ".usage") || role != "downlink" {
++				continue
++			}
++			p := strings.TrimSuffix(k, "usage")
++			name := cfg[p+"ssid"]
++			if cfg[p+"vwire"] == "enabled" && cfg[p+"mode"] == "master" && strings.HasPrefix(name, "vwire-") && len(name) > 6 {
++				if ssid != "" && name != ssid {
++					return "", ""
++				}
++				ssid = name
++			}
++		}
++	}
++	if ssid == "" {
++		return "", ""
++	}
++	if key := cfg["mesh.psk"]; key != "" {
++		return ssid, key
++	}
++	var key string
++	for k, v := range cfg {
++		if strings.HasPrefix(k, "aaa.") && strings.HasSuffix(k, ".ssid") && v == ssid {
++			candidate := cfg[strings.TrimSuffix(k, "ssid")+"wpa.psk"]
++			if candidate == "" {
++				continue
++			}
++			if key != "" && candidate != key {
++				return ssid, ""
++			}
++			key = candidate
++		}
++	}
++	return ssid, key
++}
++
+ func syncMesh(ap *openwrt.Client, cfgPath string, apply bool) {
+ 	if !apply {
+ 		return
+@@ -947,11 +986,9 @@ func syncMesh(ap *openwrt.Client, cfgPath string, apply bool) {
+ 		return
+ 	}
+ 	cfg := translate.ParseCfg(string(b))
+-	ssid, psk := cfg["mesh.essid"], ""
+-	for k, v := range cfg {
+-		if strings.HasPrefix(k, "aaa.") && strings.HasSuffix(k, ".ssid") && v == ssid && ssid != "" {
+-			psk = cfg[strings.TrimSuffix(k, "ssid")+"wpa.psk"]
+-		}
++	ssid, psk := meshCredentials(cfg)
++	if meshUplink && cfg["mesh.status"] == "enabled" && (ssid == "" || psk == "") {
++		log.Printf("MESH: waiting for site backhaul credentials (SSID present=%t, PSK resolved=%t)", ssid != "", psk != "")
+ 	}
+ 	radio := ""
+ 	if out, err := ap.Run("uci show wireless"); err == nil {
